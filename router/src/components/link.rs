@@ -65,7 +65,10 @@ pub fn A<H>(
     replace: bool,
     /// Sets the `class` attribute on the underlying `<a>` tag, making it easier to style.
     #[prop(optional, into)]
-    class: Option<AttributeValue>,
+    class: Option<String>,
+    /// Append to the `class` attribute on the underlying `<a>` tag when link is active.
+    #[prop(optional, into)]
+    append_class_when_active: Option<String>,
     /// Sets the `id` attribute on the underlying `<a>` tag, making it easier to target.
     #[prop(optional, into)]
     id: Option<String>,
@@ -85,7 +88,8 @@ where
         exact: bool,
         state: Option<State>,
         replace: bool,
-        class: Option<AttributeValue>,
+        class: Option<String>,
+        append_class_when_active: Option<String>,
         id: Option<String>,
         children: Children,
     ) -> HtmlElement<leptos::html::A> {
@@ -118,13 +122,26 @@ where
             }
         });
 
+        let compute_class = move |is_active| {
+            if is_active {
+                match (class.as_ref(), append_class_when_active.as_ref()) {
+                    (Some(c1), Some(c2)) => Some(format!("{c1} {c2}",)),
+                    (Some(c1), None) => Some(c1.to_owned()),
+                    (None, Some(c2)) => Some(c2.to_owned()),
+                    _ => None,
+                }
+            } else {
+                class.as_ref().map(|c| c.to_owned())
+            }
+        };
+
         view! { cx,
             <a
                 href=move || href.get().unwrap_or_default()
                 prop:state={state.map(|s| s.to_js_value())}
                 prop:replace={replace}
                 aria-current=move || if is_active.get() { Some("page") } else { None }
-                class=class
+                class=move || compute_class(is_active.get())
                 id=id
             >
                 {children(cx)}
@@ -133,5 +150,15 @@ where
     }
 
     let href = use_resolved_path(cx, move || href.to_href()());
-    inner(cx, href, exact, state, replace, class, id, children)
+    inner(
+        cx,
+        href,
+        exact,
+        state,
+        replace,
+        class,
+        append_class_when_active,
+        id,
+        children,
+    )
 }
